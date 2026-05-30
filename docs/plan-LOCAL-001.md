@@ -1,91 +1,85 @@
-# Implementation Plan: Build Hello World Express API
+# Implementation Plan: Build Hello Express API v2
 
 **Task ID:** LOCAL-001
 **Phase:** Plan
+**Spec Version:** 2.0
 **Created:** 2026-05-30
 
 ## Overview
 
-Create a minimal Express.js API with a single `GET /api/hello` endpoint that returns `{ "message": "Hello from zocode!" }`. Plain JavaScript, CommonJS modules, Node.js built-in test framework.
+Create a minimal Express.js API with a single `GET /api/hello` endpoint that returns `{ "hello": "world" }`. Includes a catch-all 404 handler that returns JSON. Plain JavaScript, CommonJS modules, Node.js built-in test framework.
+
+## v2 Changes from v1
+
+| Aspect | v1 (current) | v2 (target) |
+|--------|--------------|-------------|
+| `GET /api/hello` response | `{ "message": "Hello from zocode!" }` | `{ "hello": "world" }` |
+| 404 response format | `{ "message": "Not Found" }` | `{ "error": "Not Found" }` with explicit `Content-Type: application/json` |
 
 ## Step-by-Step Implementation Order
 
-### Step 1: Create `package.json`
-
-**File:** `package.json`
-
-Create the project manifest with Express as the only dependency.
-
-**Changes:**
-- `name`: `zocode-example`
-- `version`: `1.0.0`
-- `description`: `Hello World Express API for zocode`
-- `main`: `src/index.js`
-- `scripts.start`: `node src/index.js`
-- `scripts.test`: `node --test`
-- `dependencies.express`: `^4.21.0`
-
-**Complexity:** Trivial
-**Dependencies:** None (this is the foundation)
-
----
-
-### Step 2: Create `src/index.js`
+### Step 1: Update `src/index.js` — Response Body + 404 Format
 
 **File:** `src/index.js`
 
-Implement the Express server:
+Two changes:
 
-1. Import `express`
-2. Create `app` instance
-3. Register `GET /api/hello` handler → returns `{ message: "Hello from zocode!" }` with `Content-Type: application/json`
-4. Register catch-all middleware for unknown routes → returns `404` with `{ message: "Not Found" }`
-5. Export `app` for test consumption
-6. Conditional `app.listen()` — only when run directly (`require.main === module`), using `PORT` env var (default `3000`)
-7. Graceful shutdown on `SIGINT`/`SIGTERM`
+1. **Route handler (`GET /api/hello`):** Change the JSON response from `{ message: 'Hello from zocode!' }` to `{ hello: 'world' }`.
 
-**Complexity:** Low
-**Dependencies:** Step 1 (package.json must exist before `npm install`)
+2. **Catch-all 404 middleware:** Change response body shape from `{ message: 'Not Found' }` to `{ error: 'Not Found' }`. Express's `.status(404).json(...)` already sets `Content-Type: application/json`, so no additional header configuration is needed.
+
+**Changes (targeted):**
+
+```diff
+- res.json({ message: 'Hello from zocode!' });
++ res.json({ hello: 'world' });
+
+- res.status(404).json({ message: 'Not Found' });
++ res.status(404).json({ error: 'Not Found' });
+```
+
+**Complexity:** Trivial (2-line change)
+**Dependencies:** None
 
 ---
 
-### Step 3: Create `test/hello.test.js`
+### Step 2: Update `test/hello.test.js` — Assert New Response Body
 
 **File:** `test/hello.test.js`
 
-Integration tests using Node.js built-in `node:test`:
+Two changes:
 
-1. **Suite: `GET /api/hello`**
-   - Starts server on dynamic port (`listen(0)`)
-   - Builds raw HTTP request using `http` module
-   - Asserts: status `200`, `Content-Type` includes `application/json`, body message matches
-2. **Suite: `GET /api/unknown` (404 handling)**
-   - Same server setup
-   - Asserts: status `404`, `Content-Type` includes `application/json`
-3. **Graceful teardown:**
-   - `after` hook: destroy HTTP server, clear `require.cache` for the app module
+1. **`GET /api/hello` suite:** Change the body assertion from `body.message === 'Hello from zocode!'` to `body.hello === 'world'`.
 
-**Helpers:**
-- Test helper to make an HTTP request and collect response (status, headers, body)
-- Parse JSON body for assertions
+2. **`GET /api/unknown` suite:** Add a body assertion to verify the 404 response is valid JSON with `error: 'Not Found'`.
 
-**Complexity:** Low
-**Dependencies:** Step 2 (depends on the app module structure)
+**Changes (targeted):**
+
+```diff
+- assert.equal(body.message, 'Hello from zocode!');
++ assert.equal(body.hello, 'world');
+```
+
+And in the 404 test suite, add:
+
+```javascript
+  it('should return 404 with JSON error body', async () => {
+    const res = await request('GET', '/api/unknown', server);
+
+    assert.equal(res.statusCode, 404);
+    assert.ok(res.headers['content-type'].includes('application/json'));
+
+    const body = JSON.parse(res.body);
+    assert.equal(body.error, 'Not Found');
+  });
+```
+
+**Complexity:** Low (update assertion + add body check in 404 test)
+**Dependencies:** Step 1 (test must match the app's behavior)
 
 ---
 
-### Step 4: Install Dependencies
-
-**Command:** `npm install`
-
-Installs Express and its transitive dependencies.
-
-**Complexity:** Trivial
-**Dependencies:** Step 1 (package.json must exist)
-
----
-
-### Step 5: Run Tests and Verify
+### Step 3: Run Tests and Verify
 
 **Command:** `npm test`
 
@@ -93,54 +87,51 @@ Runs `node --test`, which auto-discovers `test/**/*.test.js`.
 
 **Verification criteria:**
 - All tests pass (green)
+- `GET /api/hello` returns `{ "hello": "world" }` with HTTP 200
+- `GET /api/unknown` returns JSON with HTTP 404
 - Server starts without errors via `node src/index.js`
-- Manual curl check (optional): `curl http://localhost:3000/api/hello` returns expected JSON
 
 **Complexity:** Trivial
-**Dependencies:** Steps 2, 3, 4 (all must be complete)
+**Dependencies:** Steps 1, 2
 
 ---
 
 ## Dependency Graph
 
 ```
-  Step 1 (package.json)
-      │
-      ├── Step 4 (npm install)
-      │
-      └── Step 2 (src/index.js)
-              │
-              └── Step 3 (test/hello.test.js)
-                      │
-                      └── Step 5 (npm test)
+Step 1 (src/index.js)
+    │
+    └── Step 2 (test/hello.test.js)
+            │
+            └── Step 3 (npm test)
 ```
 
-**Parallelizable:** Steps 2 and 4 can be done in parallel after Step 1.
+Steps 1 and 2 must be sequential (test must match app behavior). Step 3 is the final verification.
 
-## Files to Create
+## Files to Modify
 
-| File | Step | Purpose |
-|------|------|---------|
-| `package.json` | 1 | Project manifest, scripts, dependencies |
-| `src/index.js` | 2 | Express app, route handlers, server entry point |
-| `test/hello.test.js` | 3 | Integration tests |
+| File | Step | Change |
+|------|------|--------|
+| `src/index.js` | 1 | Response body → `{ hello: 'world' }`, 404 → `{ error: 'Not Found' }` |
+| `test/hello.test.js` | 2 | Assertion for new response body + 404 body check |
+
+No new files needed — the project structure is already established.
 
 ## Test Strategy
 
 - **Type:** Integration (end-to-end via HTTP)
 - **Framework:** Node.js built-in `node:test` + `node:assert/strict`
-- **HTTP client:** Node.js built-in `http` module (no `supertest`)
+- **HTTP client:** Node.js built-in `http` module
 - **Port strategy:** Dynamic port (`listen(0)`) to avoid conflicts
 - **Isolation:** Each test starts its own server instance; teardown destroys server and clears module cache
 - **Coverage:**
-  - Happy path: `GET /api/hello` → 200 + correct body + JSON content type
-  - Edge case: unknown route → 404 + JSON content type
-  - (Verification-only) Server boots without crash on `node src/index.js`
+  - Happy path: `GET /api/hello` → 200 + `{ hello: "world" }` + `Content-Type: application/json`
+  - Edge case: unknown route → 404 + JSON body with `{ error: "Not Found" }` + `Content-Type: application/json`
 
 ## Risks and Mitigations
 
 | Risk | Likelihood | Mitigation |
 |------|-----------|------------|
-| Port conflict in tests | Low | Use `listen(0)` for dynamic OS-assigned port |
-| Module cache pollution | Low | Clear `require.cache` in `after` hook |
-| Express version breaking changes | Very low | Pin to `^4.21.0`, stable major version |
+| `require.cache` stale after edit | Low | Clear cache in test `after` hook (already implemented) |
+| Response body change breaks downstream consumers | N/A | No consumers — this is a standalone example API |
+| Express `.json()` doesn't set Content-Type | Very low | Express `.json()` always sets `Content-Type: application/json` — confirmed by Express 4.x docs |
