@@ -51,14 +51,14 @@ describe('GET /api/hello', () => {
     delete require.cache[require.resolve('../src/index')];
   });
 
-  it('should return HTTP 200 with the correct message', async () => {
+  it('should return HTTP 200 with hello world', async () => {
     const res = await request('GET', '/api/hello', server);
 
     assert.equal(res.statusCode, 200);
     assert.ok(res.headers['content-type'].includes('application/json'));
 
     const body = JSON.parse(res.body);
-    assert.equal(body.message, 'Hello from zocode!');
+    assert.equal(body.hello, 'world');
   });
 });
 
@@ -75,10 +75,13 @@ describe('GET /api/unknown (404 handling)', () => {
     delete require.cache[require.resolve('../src/index')];
   });
 
-  it('should return HTTP 404 for unknown routes', async () => {
+  it('should return HTTP 404 with JSON error body', async () => {
     const res = await request('GET', '/api/unknown', server);
 
     assert.equal(res.statusCode, 404);
     assert.ok(res.headers['content-type'].includes('application/json'));
+
+    const body = JSON.parse(res.body);
+    assert.equal(body.error, 'Not Found');
   });
 });

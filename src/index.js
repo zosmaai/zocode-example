@@ -6,12 +6,12 @@ const app = express();
 
 // ── Routes ───────────────────────────────────────────────
 app.get('/api/hello', (_req, res) => {
-  res.json({ message: 'Hello from zocode!' });
+  res.json({ hello: 'world' });
 });
 
 // ── 404 catch-all ────────────────────────────────────────
 app.use((_req, res) => {
-  res.status(404).json({ message: 'Not Found' });
+  res.status(404).json({ error: 'Not Found' });
 });
 
 // ── Export for testing ───────────────────────────────────
