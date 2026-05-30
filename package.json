@@ -1,0 +1,1 @@
+{"name":"zocode-test","version":"1.0.0","private":true,"scripts":{"start":"node src/index.js","test":"node --test test/*.test.js"},"dependencies":{"express":"^5.2.1"}}
